@@ -130,9 +130,13 @@ Please read [CONTRIBUTING](CONTRIBUTING.md) for details on our code of conduct, 
 * [Alecxandra Mesquita](https://github.com/AlecxandraMesquita)
 * [André Praça De Almeida Pinheiro](https://github.com/apracapinheiro)
 * [Clazzeani Dias Almeida](https://github.com/clazzeani)
+* [George Silva Macedo](https://github.com/)
 * [Robson Aparecido Ronzani](https://github.com/ronzani)
 * [Thales Ribeiro Evangelista](https://github.com/thales-t)
 * [Thiago Carvalho Peçanha](https://github.com/carvalhopecanha)
+* [Thyago Mendes Neves](https://github.com/thyagomn)
+* [Wilber Lacerda De Jesus](https://github.com/wilberlacerda)
+
 
 See also the list of [contributors](https://github.com/agencia-tecnologia-palmas/boilerplate-manager/contributors) who participated in this project.
 
