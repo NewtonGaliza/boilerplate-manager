@@ -3,13 +3,19 @@
 import os
 from setuptools import find_packages, setup
 
-VERSION = "1.0.0.dev0"
+VERSION = "1.0.0.dev2"
 AUTHOR = "Agência Municipal de Tecnologia da Informação do Município de Palmas"
 AUTHOR_EMAIL = 'dev.licencas@palmas.to.gov.br'
 
-with open(os.path.join(os.path.dirname(__file__), 'README.md')) as readme:
-    README = readme.read()
+LONG_DESCRIPTION = """
+Boilerplate Manager is a Django app to generate forms, templates, API,
+views for apps of your project. For each app in your project, you create
+the models and after you can generate all the forms, templates, APIs and
+views of this app, you will only need to take care of the business rule.
 
+Github: https://github.com/agencia-tecnologia-palmas/boilerplate-manager/blob/master/README.md
+
+"""
 # allow setup.py to be run from any path
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
@@ -20,7 +26,7 @@ setup(
     include_package_data=True,
     license='MIT License',
     description='It is a Django app to generate forms, templates, Api Rest and views for apps of your project.',
-    long_description=README,
+    long_description=LONG_DESCRIPTION,
     url='https://github.com/agencia-tecnologia-palmas/boilerplate-manager.git',
     author=AUTHOR,
     author_email=AUTHOR_EMAIL,
