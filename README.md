@@ -106,6 +106,29 @@ To generate the files only one specific model, run this command:
 
  This command will generate all the forms, views, Api Rest and templates for your model.
 
+After this procedure add your app in the main urls of your project:
+
+```python
+    urlpatterns = [
+        # other urls
+        path('core/<your_app>', include('<your_app>.urls'), name='<your_app>'),
+    ]
+```
+Run
+ 
+```shell 
+    $ python manage.py migrate
+```
+to create the core models.
+
+Run 
+```shell 
+    $ python manage.py runserver
+```
+to run the server
+
+Visit http://127.0.0.1:8000/core/ to list the apps installed in your project.
+
 ## Built With
 
 * [Django](https://www.djangoproject.com/) - The high-level Python Web framework that encourages rapid development and clean, pragmatic design.
