@@ -78,7 +78,7 @@ Visit http://127.0.0.1:8000/core/ to list the apps installed in your project.
 
 ### Usage
 
-For generate the files of your model, create one app and write your models. The models should extends `Base`.
+To generate the files of your model, create one app and write your models. The models should extends `Base`.
 
 Example:
 
@@ -90,7 +90,7 @@ Example:
 class NameModel(Base):
     ...
  ```
-After this, run the command for generate the files of the app.
+After this, run the command to generate the files of the app.
 
  ```shell
     $ python manage.py build <your_app_name> 
