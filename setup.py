@@ -3,7 +3,7 @@
 import os
 from setuptools import find_packages, setup
 
-VERSION = "1.0.0.dev2"
+VERSION = "1.0.1"
 AUTHOR = "Agência Municipal de Tecnologia da Informação do Município de Palmas"
 AUTHOR_EMAIL = 'dev.licencas@palmas.to.gov.br'
 
