@@ -14,6 +14,15 @@
         $(".navbar-sidenav .sidenav-second-level, .navbar-sidenav .sidenav-third-level").removeClass("show");
     });
 
+    $(".nav-item.dropdown a").click(function (e) {
+        e.preventDefault();
+        if ($( this ).parent( 'li' ).hasClass('show')){
+            $( this ).parent( 'li' ).removeClass( 'show' );
+        }else{
+            $( this ).parent( 'li' ).addClass( 'show' );
+        }
+    });
+
     // Force the toggled class to be removed when a collapsible nav link is clicked
     $(".navbar-sidenav .nav-link-collapse").click(function (e) {
         e.preventDefault();

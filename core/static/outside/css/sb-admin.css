@@ -73,11 +73,13 @@ body.fixed-nav {
     cursor: pointer; }
   #mainNav .navbar-collapse .navbar-sidenav .nav-link-collapse:after {
     float: right;
-    content: '\f105';
     color: #adb5bd;
-    font-family: 'FontAwesome'; }
+    content: "\f105"; 
+    font-family: "Font Awesome 5 Free";  /* updated font-family */
+    font-weight: 900; /* regular style/weight */
+}
   #mainNav .navbar-collapse .navbar-sidenav .nav-link-collapse.collapsed:after {
-    content: '\f105'; }
+    content: "\f105"; }
   #mainNav .navbar-collapse .navbar-sidenav .sidenav-second-level,
   #mainNav .navbar-collapse .navbar-sidenav .sidenav-third-level {
     padding-left: 0; }
@@ -103,10 +105,12 @@ body.fixed-nav {
     #mainNav .navbar-collapse .navbar-nav > .nav-item.dropdown > .nav-link:after {
       float: right;
       width: auto;
-      content: '\f105';
       color: #adb5bd;
       border: none;
-      font-family: 'FontAwesome'; }
+      content: "\f105"; 
+      font-family: "Font Awesome 5 Free";  /* updated font-family */
+      font-weight: 900; /* regular style/weight */
+}
     #mainNav .navbar-collapse .navbar-nav > .nav-item.dropdown > .nav-link .new-indicator {
       position: absolute;
       top: 0;

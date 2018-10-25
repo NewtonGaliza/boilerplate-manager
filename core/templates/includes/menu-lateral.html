@@ -12,7 +12,7 @@
     {#    inicia o menu superior#}
         <ul class="navbar-nav navbar-sidenav">
             {% for app in apps %}
-                <li class="nav-item" data-toggle="tooltip" data-placement="right" title="{{ app.name_app }}">
+                <li class="nav-item dropdown" data-toggle="tooltip" data-placement="right" title="{{ app.name_app }}">
                     <a class="nav-link nav-link-collapse collapsed" data-toggle="collapse" href="#collapse{{ forloop.counter }}">
                         <i class="fa fa-map"></i>
                         <span class="nav-link-text">{{ app.name_app }}</span>
