@@ -3,7 +3,7 @@
  * Copyright 2013-2017 Start Bootstrap
  * Licensed under MIT (https://github.com/BlackrockDigital/startbootstrap-sb-admin/blob/master/LICENSE)
  */
-body {
+ body {
   background: #ffffff;
   /*background: #343a40; */
 }
@@ -321,4 +321,9 @@ Override buttons styles
     color: #fff!important;
     background-color: #d9534f!important;
     border-color: #d43f3a!important;
+}
+@media (min-width: 992px) {
+  .nav-space{
+    margin-left: 15px;
+  }
 }

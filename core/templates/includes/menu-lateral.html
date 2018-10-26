@@ -169,13 +169,13 @@
                     </div>
                 </li>
 
-                <li class="nav-item">
-                    <a class="navbar-link" href="{% url 'core:password_change' %}"> Alterar Senha </a>
+                <li class="nav-item nav-space">
+                    <a class="navbar-link" href="{% url 'core:password_change' %}"> Alterar Senha</a>
                 </li>
 
-                <li class="nav-item">
+                <li class="nav-item nav-space">
                     <a href="#" class="navbar-link" data-toggle="modal" data-target="#exampleModal">
-                        <i class="fa fa-fw fa-sign-out"></i>Sair</a>
+                        <i class="fas fa-sign-out-alt"></i> Sair</a>
                 </li>
             {% else %}
                 <li class="nav-item"><a class="nav-link" href="{% url 'core:login' %}">Log in</a></li>

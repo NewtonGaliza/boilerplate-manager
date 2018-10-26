@@ -12,15 +12,12 @@
         $("body").toggleClass("sidenav-toggled");
         $(".navbar-sidenav .nav-link-collapse").addClass("collapsed");
         $(".navbar-sidenav .sidenav-second-level, .navbar-sidenav .sidenav-third-level").removeClass("show");
+        $( ".nav-item.dropdown" ).removeClass( 'show' );
     });
 
-    $(".nav-item.dropdown a").click(function (e) {
+    $(".nav-item.dropdown a.nav-link").click(function (e) {
         e.preventDefault();
-        if ($( this ).parent( 'li' ).hasClass('show')){
-            $( this ).parent( 'li' ).removeClass( 'show' );
-        }else{
-            $( this ).parent( 'li' ).addClass( 'show' );
-        }
+        $( this ).parent( 'li' ).toggleClass( 'show' );
     });
 
     // Force the toggled class to be removed when a collapsible nav link is clicked

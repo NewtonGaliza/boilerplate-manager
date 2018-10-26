@@ -789,11 +789,11 @@ class Command(BaseCommand):
                         "class='", "class='form-control-plaintext ")
                 # Adicionando a classe obrigatorio aos campos required
                 if required is not '':
-                    tag_result = tag_result.replace(
-                        "class='", "class='obrigatorio ")
+                    tag_result += '\n<div class="invalid-feedback">Campo Obrigatorio.</div>'
                 # Adicionando o HelpText no campo
                 if helptext is not '':
                     tag_result += "\n<small class='form-text text-muted'>{}</small>\n".format(helptext)
+                tag_result += "{{% if form.{0}.errors  %}}{{{{ form.{0}.errors  }}}}{{% endif %}}".format(iten['name'])
                 tag_result += "</div>"
                 return tag_result
             else:
