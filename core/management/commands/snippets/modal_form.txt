@@ -39,6 +39,7 @@
     */
     $("#btn-gravar-$model_name$").on("click", function (event) {
         event.preventDefault();
+        var url = window.location.href;
         $.ajax({
             url: '/core/$app_name$/api/$model_name$/',
             method: 'POST',
@@ -46,7 +47,7 @@
             dataType: 'json',
             success: function (data){
                 // Adicionando o item retornado no select.
-                $("#id_$field_name$").load( "#id_$field_name$ option" );
+                $("#id_$field_name$").load( url + " #id_$field_name$ option" );
                 // Ocultando o form.
                 $("#form$ModelName$Modal").modal('hide');
                 //Limpar o form do modal

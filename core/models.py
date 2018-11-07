@@ -1,12 +1,17 @@
 from datetime import datetime
+
+from django.contrib.admin.utils import NestedObjects, quote
+from django.urls import reverse, NoReverseMatch
+from django.utils.html import format_html
+
 from django.contrib.auth import get_permission_codename, get_user_model
 from django.contrib.auth.models import User
-from django.contrib.contenttypes.fields import GenericForeignKey, GenericRel
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRel, GenericRelation
 from django.db import models, transaction
 from django.db.models import (AutoField, ManyToManyField,
                               ManyToOneRel, ManyToManyRel,
                               OneToOneRel, BooleanField,
-                              FileField, ImageField )
+                              FileField, ImageField, OneToOneField)
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -47,22 +52,17 @@ class BaseManager(models.Manager):
 
         return queryset.filter(deleted=False)
 
-
-class Base(models.Model):
+class BaseMetod(models.Model):
     """Classe Base para ser herdada pelas demais
-    para herdar os métodos e atributos
+    para herdar os métodos
 
     objects_all [Manager auxiliar para retornar todos os registro
                  mesmo que o use_default_manager esteja como True]
     """
-    enabled = models.BooleanField('Ativo', default=True)
-    deleted = models.BooleanField(default=False)
-    created_on = models.DateTimeField(auto_now_add=True)
-    updated_on = models.DateTimeField(auto_now=True)
 
     # Verificação se deve ser usado o manager padrão ou o customizado
     if use_default_manager is False:
-        objects = BaseManager() 
+        objects = BaseManager()
     else:
         objects = models.Manager()
 
@@ -70,13 +70,13 @@ class Base(models.Model):
     # da configuraçao do use_default_manager
     objects_all = models.Manager()
 
-    def get_all_related_fields(self):
-        """Método para retornar todos os campos que fazem referência ao 
+    def get_all_related_fields(self, view=None, include_many_to_many=True):
+        """Método para retornar todos os campos que fazem referência ao
         registro que está sendo manipulado
-        
+
         Returns:
             [Listas] -- [São retornadas duas listas a primeira com
-                         os campos 'comuns' e a segunda lista os campos que 
+                         os campos 'comuns' e a segunda lista os campos que
                          possuem relacionamento ManyToMany ou ForeignKey]
         """
 
@@ -89,9 +89,13 @@ class Base(models.Model):
 
             for field in self._meta.get_fields(include_parents=True):
                 # Verificando se existe o atributo exclude no atributo que está sendo analisado
-                if hasattr(self, 'exclude'):
-                    if field.name in Base().get_exclude_hidden_fields() or field.name in self.exclude:
-                        continue
+
+                if view and hasattr(view, 'exclude') and field.name in view.exclude:
+                    continue
+                if view and hasattr(view, 'form_class') and hasattr(view.form_class._meta, 'exclude') and field.name in view.form_class._meta.exclude:
+                    continue
+                if field.name in self.get_exclude_hidden_fields():
+                    continue
                 # Desconsiderando o campo do tipo AutoField da análise
                 if isinstance(field, AutoField):
                     continue
@@ -99,50 +103,115 @@ class Base(models.Model):
                 if hasattr(field, "auto_now_add") or hasattr(field, "now_add"):
                     continue
 
-                # Verificando o tipo do relacionamento entre os campos
-                if type(field) is ManyToManyField:
-                    many_fields.append((
-                        field.verbose_name or field.name,
-                        self.__getattribute__(field.name).all() or None
-                    ))
-                elif type(field) is ManyToOneRel or type(field) is ManyToManyRel:
-                    many_fields.append((field.related_model._meta.verbose_name_plural or field.name,
-                                        self.__getattribute__(
-                                            (field.related_name or '{}_set'.format(field.name))
-                                        )))
-                elif type(field) is GenericRel or type(field) is GenericForeignKey:
-                    many_fields.append(((field.verbose_name if hasattr(field, 'verbose_name') else None) or field.name,
-                                        self.object.__getattribute__(field.name)))
-                elif type(field) is OneToOneRel:
-                    try:
+                try:
+                    # Verificando o tipo do relacionamento entre os campos
+                    if type(field) is ManyToManyField and include_many_to_many:
+                        if self.__getattribute__(field.name).exists():
+                            many_fields.append((
+                                field.verbose_name or field.name,
+                                self.__getattribute__(field.name).all() or None
+                            ))
+                    elif (((type(field) is ManyToOneRel or type(field) is ManyToManyRel)) or
+                           type(field) is GenericRel or type(field) is GenericForeignKey):
+                        if self.__getattribute__((field.related_name or '{}_set'.format(field.name))).exists():
+                            many_fields.append((field.related_model._meta.verbose_name_plural or field.name,
+                                                self.__getattribute__(
+                                                    (field.related_name or '{}_set'.format(field.name))
+                                                )))
+                    elif type(field) is GenericRelation:
+                        if self.__getattribute__(field.name).exists():
+                            many_fields.append((field.related_model._meta.verbose_name_plural or field.name,
+                                self.__getattribute__(field.name).all()
+                            ))
+                    elif type(field) is OneToOneRel or type(field) is OneToOneField:
                         object_list.append((field.related_model._meta.verbose_name or field.name,
-                                            self.object.__getattribute__(field.name)))
-                    except Exception:
-                        pass
-                elif type(field) is BooleanField:
-                    object_list.append(((field.verbose_name if hasattr(field, 'verbose_name') else None) or field.name,
-                                        "Sim" if self.__getattribute__(field.name) else "Nâo" ))
-                elif type(field) is ImageField or type(field) is FileField:
-                    tag = ''
-                    if self.__getattribute__(field.name).name :
-                        if type(field) is ImageField:
-                            tag = '<img width="100px" src="{url}" alt="{nome}" />'
-                        elif type(field) is FileField:
-                            tag = '<a  href="{url}" > <i class="fas fa-file"></i> {nome}</a>'
-                        if tag:
-                            tag = tag.format(url=self.__getattribute__(field.name).url,
-                                  nome=self.__getattribute__(field.name).name.split('.')[0])
+                                            self.__getattribute__(field.name)))
+                    elif type(field) is BooleanField:
+                        object_list.append(
+                            ((field.verbose_name if hasattr(field, 'verbose_name') else None) or field.name,
+                             "Sim" if self.__getattribute__(field.name) else "Nâo"))
+                    elif type(field) is ImageField or type(field) is FileField:
+                        tag = ''
+                        if self.__getattribute__(field.name).name:
+                            if type(field) is ImageField:
+                                tag = '<img width="100px" src="{url}" alt="{nome}" />'
+                            elif type(field) is FileField:
+                                tag = '<a  href="{url}" > <i class="fas fa-file"></i> {nome}</a>'
+                            if tag:
+                                tag = tag.format(url=self.__getattribute__(field.name).url,
+                                                 nome=self.__getattribute__(field.name).name.split('.')[0])
 
-                    object_list.append(((field.verbose_name if hasattr(field, 'verbose_name') else None) or field.name,
-                                        tag))
-                else:
-                    object_list.append(((field.verbose_name if hasattr(field, 'verbose_name') else None) or field.name,
-                                        self.__getattribute__(field.name)))
+                        object_list.append(
+                            ((field.verbose_name if hasattr(field, 'verbose_name') else None) or field.name,
+                             tag))
+                    elif hasattr(field, 'choices') and hasattr(self, 'get_{}_display'.format(field.name)):
+                        object_list.append(
+                            (
+                                (field.verbose_name if hasattr(field, 'verbose_name') else None) or field.name,
+                                getattr(self, 'get_{}_display'.format(field.name))()
+                             )
+                        )
+                    else:
+                        object_list.append(
+                            ((field.verbose_name if hasattr(field, 'verbose_name') else None) or field.name,
+                             self.__getattribute__(field.name)))
+                except Exception:
+                    pass
 
         finally:
             # Retornando as listas
             return object_list, many_fields
-    
+
+    def get_deleted_objects(self, objs, user, using='default'):
+        """
+        Find all objects related to ``objs`` that should also be deleted. ``objs``
+        must be a homogeneous iterable of objects (e.g. a QuerySet).
+
+        Return a nested list of strings suitable for display in the
+        template with the ``unordered_list`` filter.
+
+        Encontre todos os objetos relacionados a ``objs`` que também devem ser deletados. ``objs``
+         deve ser um iterável homogêneo de objetos (por exemplo, um QuerySet).
+
+         Retornar uma lista aninhada de sequências adequadas para exibição no
+         template com o filtro `` unordered_list``.
+        """
+        collector = NestedObjects(using=using)
+        collector.collect(objs)
+        perms_needed = set()
+
+        def format_callback(obj):
+            opts = obj._meta
+
+            no_edit_link = '%s: %s' % (str(opts.verbose_name).title(), obj)
+
+            try:
+                url = reverse('%s:%s-update'% (
+                                  opts.app_label,
+                                  opts.model_name),
+                              None, (quote(obj.pk),))
+
+
+            except NoReverseMatch:
+                # Change url doesn't exist -- don't display link to edit
+                return no_edit_link
+
+            p = '%s.%s' % (opts.app_label, get_permission_codename('delete', opts))
+            if not user.has_perm(p):
+                perms_needed.add(opts.verbose_name.title())
+            # Display a link to the admin page.
+            return format_html('{}: <a href="{}">{}</a>',
+                               str(opts.verbose_name).title(),
+                               url,
+                               obj)
+
+        to_delete = collector.nested(format_callback)
+
+        protected = [format_callback(obj) for obj in collector.protected]
+        model_count = {model._meta.verbose_name_plural: len(objs) for model, objs in collector.model_objs.items()}
+
+        return perms_needed, protected
+
     def delete(self, using='default', keep_parents=False):
         """Sobrescrevendo o método para marcar os campos
         deleted como True e enabled como False. Assim o
@@ -150,10 +219,10 @@ class Base(models.Model):
         """
         # Verificando se deve ser utilizado o manager costumizado
         if use_default_manager is False:
-            
+
             # Iniciando uma transação para garantir a integridade dos dados
             with transaction.atomic():
-                
+
                 # Recuperando as listas com os campos do objeto
                 object_list, many_fields = self.get_all_related_fields()
 
@@ -161,13 +230,13 @@ class Base(models.Model):
                 for obj, values in many_fields:
                     if values.all():
                         values.all().update(deleted=True, enabled=False)
-                # Atualizando o registro 
+                # Atualizando o registro
                 self.deleted = True
                 self.enabled = False
                 self.save(update_fields=['deleted', 'enabled'])
         else:
-            super(Base, self).delete()
-    
+            super().delete()
+
     class Meta:
         """ Configure abstract class """
         abstract = True
@@ -219,6 +288,16 @@ class Base(models.Model):
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
 
+class Base(BaseMetod):
+    enabled = models.BooleanField('Ativo', default=True)
+    deleted = models.BooleanField(default=False)
+    created_on = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        """ Configure abstract class """
+        abstract = True
+        ordering = ['pk']
 
     def __str__(self):
         return '%s' % self.updated_on
@@ -232,6 +311,7 @@ class ParameterForBase(Base):
     login_redirect_url = models.CharField(max_length=250, blank=True, null=True, default= '/core/')
     login_url = models.CharField(max_length=250, blank=True, null=True, default='/core/login/')
     logout_redirect_url = models.CharField(max_length=250, blank=True, null=True, default='/core/login/')
+    url_integracao = models.CharField(max_length=500, blank=True, null=True, default='')
 
     def save(self, force_insert=False, force_update=False, using=None,
              update_fields=None):
@@ -291,8 +371,12 @@ class UsuarioBase(models.Model):
         try:
             mes_atual = datetime.now().month
             ano_atual = datetime.now().year
-            response = requests.get("http://integracao.palmas.to.gov.br/apirest/folha-pagamento/?format=json",
-                                    params={'matricula':self.matricula or self.user.username, 'ano_referencia':ano_atual,'mes_referencia':mes_atual}).json()
+            parameter_for_base = ParameterForBase.objects.first()
+            response = None
+            if hasattr(parameter_for_base, 'url_integracao') and parameter_for_base.url_integracao:
+                response = requests.get(parameter_for_base.url_integracao,
+                                    params={'matricula': self.matricula or self.user.username,
+                                            'ano_referencia': ano_atual, 'mes_referencia': mes_atual}).json()
 
             if response and 'count' in response and response['count'] <= 0:
                 if mes_atual != 1:
@@ -300,7 +384,7 @@ class UsuarioBase(models.Model):
                 else:
                     mes_atual = 12
                     ano_atual -= 1
-                response = requests.get("http://integracao.palmas.to.gov.br/apirest/folha-pagamento/?format=json",
+                response = requests.get(parameter_for_base.url_integracao,
                                         params={'matricula': self.matricula or self.user.username, 'ano_referencia': ano_atual,
                                                 'mes_referencia': mes_atual}).json()
             if response and 'results' in response and len(response['results']) > 0:

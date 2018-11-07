@@ -73,7 +73,9 @@ class CpfCnpjField(CharField):
 
     def __init__(self, max_length=None, min_length=None, cpfcnpj_required=True, *args, **kwargs):
         self.cpfcnpj_required = cpfcnpj_required
-        super(CpfCnpjField, self).__init__(max_length, min_length, *args, **kwargs)
+        self.max_length = max_length
+        self.min_length = min_length
+        super().__init__(**kwargs)
 
     def validate_CPF(self, value):
         """

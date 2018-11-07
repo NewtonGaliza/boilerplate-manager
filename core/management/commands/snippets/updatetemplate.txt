@@ -1,6 +1,6 @@
 {% extends "outside_template/base_update.html" %}
-{% load base %}
-{% block tituloapp %}Cadastrando $title$ {% endblock tituloapp %}
+{% load boilerplate_base %}
+{% block tituloapp %}Atualizando $title$ {% endblock tituloapp %}
 {% block contentform %}
     {% if form.non_field_errors %}
         <div class="alert alert-danger" role="alert">

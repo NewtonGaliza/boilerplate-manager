@@ -5,49 +5,57 @@
                                 <table id="table-item" class="table table-striped">
                                     <thead>
                                     <tr>
-                                       <!-- Percorrendo os list_display q serão exibidos para criar os títulos das colunas -->
+                                        <!-- Percorrendo os list_display q serão exibidos para criar os títulos das colunas -->
                                         {% for header in display %}
                                             {% if header == 'pk' or header == 'id' %}
                                                 <th>Opções</th>
+                                            {% else %}
+                                                <th>{{ header|capfirst }}</th>
                                             {% endif %}
+                                        {% empty %}
+
                                         {% endfor %}
-                                        <!--REPLACE_THEAD-->
                                     </tr>
                                     </thead>
                                     <tbody>
                                     {% for value in object_list %}
                                         <tr>
-                                            <td align="middle" style="width: 160px !important;">
-                                                {% for item_key, item_value in value.items %}
-
-                                                {% if item_key == 'pk' %}
-                                                <a href="{% url url_detail value.pk %}" class="btn btn-info btn-sm" data-toggle="tooltip" data-placement="right"
-                                                    title="Visualizar Registro"><i class="fa fa-eye"></i></a>
-                                                {% if has_change_permission %}
-                                                <a href="{% url url_update value.pk %}" class="btn btn-warning btn-sm" data-toggle="tooltip" data-placement="right"
-                                                    title="Editar Registro"><i class="far fa-edit"></i></a>
-                                                {% endif %}
-                                                {% if has_delete_permission %}
-                                                <a href="{% url url_delete value.pk %}" class="btn btn-danger btn-sm" data-toggle="tooltip" data-placement="right"
-                                                    title="Apagar Registro"><i class="fas fa-trash"></i></a>
-                                                {% endif %}
-                                                {% elif item_key == 'id' %}
-                                                <a href="{% url url_detail value.id %}" class="btn btn-info btn-sm" data-toggle="tooltip" data-placement="right"
-                                                    title="Visualizar Registro"><i class="fa fa-eye"></i></a>
-                                                {% if has_change_permission %}
-                                                <a href="{% url url_update value.id %}" class="btn btn-warning btn-sm" data-toggle="tooltip" data-placement="right"
-                                                    title="Editar Registro"><i class="far fa-edit"></i></a>
-                                                {% endif %}
-                                                {% if has_delete_permission %}
-                                                <a href="{% url url_delete value.id %}" class="btn btn-danger btn-sm" data-toggle="tooltip" data-placement="right"
-                                                    title="Apagar Registro"><i class="fas fa-trash"></i></a>
-                                                {% endif %}
-                                                {% endif %}
-                                                {% endfor %}
-                                            </td>
-                                           <!--REPLACE_TLINE-->
+                                            {% for item_key, item_value in value.items %}
+                                                    {% if item_key == 'pk'   %}
+                                                         <td align="middle" style="width: 160px !important;">
+                                                            <a href="{% url url_detail value.pk %}" class="btn btn-info btn-sm"
+                                                               data-toggle="tooltip" data-placement="right" title="Visualizar Registro"><i class="fa fa-eye" ></i></a>
+                                                            {% if has_change_permission %}
+                                                                <a href="{% url url_update value.pk %}" class="btn btn-warning btn-sm"
+                                                                data-toggle="tooltip" data-placement="right" title="Editar Registro" ><i class="far fa-edit"></i></a>
+                                                            {% endif %}
+                                                            {% if has_delete_permission %}
+                                                                <a href="{% url url_delete value.pk %}" class="btn btn-danger btn-sm"
+                                                                data-toggle="tooltip" data-placement="right" title="Apagar Registro" ><i class="fas fa-trash"></i></a>
+                                                            {% endif %}
+                                                         </td>
+                                                    {% elif item_key == 'id'  %}
+                                                        <td align="middle" style="width: 160px !important;">
+                                                            <a href="{% url url_detail value.id %}" class="btn btn-info btn-sm"
+                                                               data-toggle="tooltip" data-placement="right" title="Visualizar Registro" ><i class="fa fa-eye" ></i></a>
+                                                            {% if has_change_permission %}
+                                                                <a href="{% url url_update value.id %}"  class="btn btn-warning btn-sm"
+                                                                data-toggle="tooltip" data-placement="right" title="Editar Registro" ><i class="far fa-edit"></i></a>
+                                                            {% endif %}
+                                                            {% if has_delete_permission %}
+                                                                <a href="{% url url_delete value.id %}" class="btn btn-danger btn-sm"
+                                                                data-toggle="tooltip" data-placement="right" title="Apagar Registro" ><i class="fas fa-trash"></i></a>
+                                                            {% endif %}
+                                                        </td>
+                                                    {% else %}
+                                                        <td>
+                                                            {{ item_value }}
+                                                        </td>
+                                                    {% endif %}
+                                                </td>
+                                            {% endfor %}
                                         </tr>
-                                        {% endfor %}
+                                    {% endfor %}
                                     </tbody>
 
                                     {% if is_paginated %}
@@ -92,4 +100,4 @@
                                          {% endif %}
                                     </div>
                              {% endblock %}
-                        {% endblock tableblock %}
+{% endblock tableblock %}

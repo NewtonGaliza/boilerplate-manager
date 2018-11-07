@@ -1,6 +1,6 @@
 {% extends "outside_template/base.html" %}
 {% load staticfiles %}
-{% load base %}
+{% load boilerplate_base %}
 
 {% block content %}
     {% if has_add_permission %}
@@ -107,7 +107,7 @@
                                             <strong>
                                                 {% if formset.model.get_meta.verbose_name_plural %}
                                                     {{ formset.model.get_meta.verbose_name_plural.title }}
-                                                {% elif formset.model.get_meta.verbose_name.title %}
+                                                {% elif formset.model.get_meta.verbose_name %}
                                                     {{ formset.model.get_meta.verbose_name.title }}
                                                 {% elif formset.prefix %}
                                                     {{ formset.prefix.title }}

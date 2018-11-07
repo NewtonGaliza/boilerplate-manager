@@ -57,6 +57,12 @@ class Command(BaseCommand):
             help = 'Criar apenas a API'
         )
         parser.add_argument(
+            '--urls',
+            action = 'store_true',
+            dest = 'url',
+            help = 'Criar apenas as Urls'
+        )
+        parser.add_argument(
             '--forms',
             action = 'store_true',
             dest = 'forms',
@@ -739,7 +745,7 @@ class Command(BaseCommand):
             if iten["tipo"] in types:
                 # Criando a DIV para os campos de Checkbox
                 if iten["tipo"] == 'BooleanField':
-                    tag_result = "<div class='form-check'>"
+                    tag_result = "<div class='form-check col-md-6'>"
                 # Criando a DIV form-group
                 else:
                     tag_result = "<div class='form-group col-md-6'>"
@@ -842,33 +848,6 @@ class Command(BaseCommand):
                             print(line.replace(
                                 "<!--REPLACE_MODAL_HTML-->", 
                                 self.html_modals), end='')
-            # Altera o Template de listagem
-            list_view = '{}:{}-list'.format(self.app_lower, 
-                                            self.model_lower)
-            fields_display = resolve(reverse(list_view)
-                ).func.view_class.list_display
-            thead = ''
-            tline = ''
-            for item in fields_display:
-                thead += '<th>{}</th>\n'.format(
-                    item.replace('_', ' ').replace('__', ' ').title())
-                tline += '<td>{{{{ value.{} }}}}</td>\n'.format(
-                    item.replace('__', '.'))
-            
-            list_template = os.path.join(
-                self.path_template_dir, "{}_list.html".format(
-                    self.model_lower))
-            with fileinput.FileInput(list_template, inplace=True) as arquivo:
-                for line in arquivo:
-                    print(line.replace(
-                        "<!--REPLACE_THEAD-->", 
-                        thead), end='')
-            with fileinput.FileInput(list_template, inplace=True) as arquivo:
-                for line in arquivo:
-                    print(line.replace(
-                        "<!--REPLACE_TLINE-->", 
-                        tline), end='')
-
         except:
             self._message("Favor colocar a url da app no urls principal.")
     '''
@@ -880,11 +859,11 @@ class Command(BaseCommand):
     def call_methods(self, options):
         # Verificando se foram passados parâmetros opcionais
         if options['templates']:
-            self._message("Trabalhando apenas os templates concluído.")
+            self._message("Trabalhando apenas os templates.")
             self._manage_templates()
             return
         elif options['api']:
-            self._message("Trabalhando apenas as views concluído.")
+            self._message("Trabalhando apenas a api.")
             # Chamando o método para tratar o serializer
             self._manage_serializer()
             # Chamando o método para tratar as views da API
@@ -892,11 +871,20 @@ class Command(BaseCommand):
             # Chamado o método para tratar as urls da API
             self._manage_api_url()
             return                
+        elif options['url']:
+            self._message("Trabalhando apenas as urls.")
+            # Chamando o método para tratar as urls
+            self._manage_url()
+            # Chamado o método para tratar as urls da API
+            self._manage_api_url()
+            return                
         elif options['forms']:
+            self._message("Trabalhando apenas os forms.")
             # Chamando o método para tratar os form
             self._manage_form()
             return
         elif options['views']:
+            self._message("Trabalhando apenas as views.")
             # Chamando o método para tratar as views
             self._manage_views()
         elif options['renderhtml']:

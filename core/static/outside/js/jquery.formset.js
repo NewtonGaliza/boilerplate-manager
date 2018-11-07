@@ -46,16 +46,18 @@
             },
 
             showAddButton = function() {
+                len_delete_checked = $('.' + options.formCssClass + ':hidden').not('.formset-custom-template').filter('.' + options.prefix).length;
                 return maxForms.length == 0 ||   // For Django versions pre 1.2
-                    (maxForms.val() == '' || maxForms.val() - totalForms.val() > 0);
+                    (maxForms.val() == '' || maxForms.val() - (totalForms.val() - len_delete_checked) > 0);
             },
 
             /**
             * Indicates whether delete link(s) can be displayed - when total forms > min forms
             */
             showDeleteLinks = function() {
+                 len_delete_checked = $('.' + options.formCssClass + ':hidden').not('.formset-custom-template').filter('.' + options.prefix).length;
                 return minForms.length == 0 ||   // For Django versions pre 1.7
-                    (minForms.val() == '' || (totalForms.val() - minForms.val() > 0));
+                    (minForms.val() == '' || ((totalForms.val() - len_delete_checked) - minForms.val() > 0));
             },
 
             insertDeleteLink = function(row) {
@@ -99,7 +101,7 @@
                     //retirei as 2 linhas de codigos abaixo do else, para funcionar corretamente a contagem incluindo os inlines ja existentes, porem ocutos
                     // Update the TOTAL_FORMS count:
                     // coloquei para contar apenas os inlines visiveis, para funcionar de forma correta o minForms
-                    forms = $('.' + options.formCssClass + ':visible').not('.formset-custom-template').filter('.' + options.prefix);
+                    forms = $('.' + options.formCssClass).not('.formset-custom-template').filter('.' + options.prefix);
                     totalForms.val(forms.length);
                     for (var i = 0, formCount = forms.length; i < formCount; i++) {
                         // Apply `extraClasses` to form rows so they're nicely alternating:

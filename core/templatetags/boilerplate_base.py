@@ -5,6 +5,19 @@ from django.template.defaultfilters import stringfilter
 
 register = template.Library()
 
+
+@register.simple_tag(takes_context=True)
+def get_ip(context):
+    """Template tag to get user IP"""
+    request = context['request']
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+
 # pegar um atributo de um dicionario
 # motivo: No template não acessa var que começa com _
 @register.filter(name='get')
@@ -80,6 +93,12 @@ def has_delete_permission(model=None, request=None):
         return model.has_delete_permission(request=request)
     else:
         return False
+
+
+@register.filter(name='has_perm')
+def has_perm(user, permissao):
+    return user.has_perm(permissao)
+
 
 @register.filter
 @stringfilter

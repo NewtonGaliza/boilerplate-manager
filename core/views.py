@@ -1,33 +1,34 @@
 """Views padrões para serem herdadas pelas apps que desejarem utilizar
 as customizações implementadas.
 """
+
+from datetime import datetime, date
+from unicodedata import normalize
+
 import pytz
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.contrib.messages import DEFAULT_TAGS
+from django.contrib.auth.views import LoginView, LogoutView, PasswordResetCompleteView
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError, FieldDoesNotExist, FieldError
-from django.core.paginator import Paginator
-from django.db.models import ForeignKey, Q, ManyToManyField, ManyToOneRel, ManyToManyRel, DateField, DateTimeField
-from django.db.models.fields import BooleanField as BooleanFieldModel, AutoField
+from django.db.models import ForeignKey, Q, DateField, DateTimeField
+from django.db.models.fields import BooleanField as BooleanFieldModel
 from django.db.models.fields.related_descriptors import ForwardManyToOneDescriptor
 from django.db.models.query_utils import DeferredAttribute
+from django.forms.fields import DateTimeField
 from django.shortcuts import redirect, resolve_url
 from django.urls import reverse
-from django.urls.base import resolve
 from django.utils.http import is_safe_url
+from django.utils.safestring import mark_safe
 from django.utils.text import camel_case_to_spaces
 from django.views.generic import ListView, TemplateView, DetailView
 from django.views.generic.edit import UpdateView, CreateView, DeleteView
 
-from core.models import ParameterForBase
+from core.models import ParameterForBase, BaseMetod
 from .forms import BaseForm
 from .models import Base
-from django.contrib import messages
-from datetime import datetime, date
-from django.forms.fields import DateTimeField
-from django.contrib.auth.views import LoginView, LogoutView, PasswordResetCompleteView
-from django.utils.http import is_safe_url
-import requests
 
 
 def has_fk_attr(classe= None, attr=None):
@@ -78,11 +79,14 @@ def get_apps(context_self):
     # pega e percorre as apps registradas no setings
     for app in apps.get_app_configs():
         # rejeita os resultados que forem do admin, dos plugins e a propria core
-        if not app.name.lower().__contains__('django'.lower()) and \
-                not app.name.lower().__contains__('core'.lower()):
+        if not app.name.lower() == 'core'.lower():
             _models = []
             # percorre todos o models da app
             for model in app.get_models():
+                # verifica se extende do model Base caso não extenda ele então não add na lista
+                if not Base.__subclasscheck__(type(model())) and not BaseMetod.__subclasscheck__(type(model())):
+                    continue
+
                 url_name_list_model = ''
                 try:
                     # pega o nome do model que vai fica no menu
@@ -139,8 +143,8 @@ class IndexTemplateView(LoginRequiredMixin, PermissionRequiredMixin, BaseTemplat
         # não está definido ainda, mas aqui vai verificar se tem permissão ainda para continuar logado
         # parametro = ParameterForBase.objects.first()
         # self.request.user
-        # requests.get(url='http://integracao.palmas.to.gov.br/apirest/folha-pagamento/?format=json',
-        #              params={'matricula': 323721})
+        # requests.get(url='/apirest/?format=json',
+        #              params={'matricula': 0000000})
 
         url_str = '/'
         try:
@@ -224,6 +228,35 @@ class BaseListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                 # olha se é um atributo normal ou se é de relacionamento
                 if (hasattr(self.model,field) and type(getattr(self.model, field)) == DeferredAttribute):
                     query_params |= Q(**{field + '__icontains': param_filter})
+                # resolve a opção de buscar pelo name do model quando usa GenericForeignKey com o atributo content_type no modelo
+                elif ('content_type' == field.split('__')[0] and hasattr(self.model, 'content_type') and
+                      type(getattr(self.model, 'content_type')) == ForwardManyToOneDescriptor and
+                      hasattr(ContentType, field.replace( 'content_type__', ''))):
+                    param_filter_content_type = param_filter
+                    try:
+                        param_filter_content_type = param_filter_content_type.replace(" ",'').lower()
+                        param_filter_content_type = normalize('NFKD', param_filter_content_type).encode('ASCII', 'ignore').decode('ASCII')
+                    except Exception:
+                        pass
+                    query_params |= Q(**{field + '__icontains': param_filter_content_type})
+
+                elif ('content_object' == field.split('__')[0] and hasattr(self.model, 'content_object') and
+                      type(getattr(self.model, 'content_object')) == GenericForeignKey):
+                    try:
+                        # lista de objetos genericos usados pelo model
+                        list_object = queryset.values('content_type_id').distinct()
+                        for obj in ContentType.objects.filter(id__in= list_object ).all():
+                            try:
+                                # pega o campo do modelo a ser buscado
+                                field_name = field.replace('content_object__','')
+                                # pega os ids dos objetos filtrados
+                                list_id_object = obj.model_class().objects.filter(**{field_name: param_filter}).values_list('id', flat=True)
+                                if len(list_id_object)>0:
+                                    query_params |= Q(content_type_id=obj.id, object_id__in=list_id_object)
+                            except:
+                                pass
+                    except Exception as e:
+                        pass
                 else:
                     # se for um atributo de relacionamento então olha se é numero pois pk só aceita numero.
                     if not param_filter or (param_filter and param_filter.isnumeric()):
@@ -275,10 +308,13 @@ class BaseListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                     # verifica se existe auguma função feita na view e usada no display
                     # verifica se é do tipo allow_tags
                     # e verifica se tem o short_description para usa-lo no cabeçario da tabela do list
-                    if hasattr(self, name) and hasattr(getattr(self, name),'allow_tags') \
-                        and getattr(self, name).allow_tags and\
-                            hasattr(getattr(self, name),'short_description'):
+                    if (hasattr(self, name) and hasattr(getattr(self, name),'short_description')):
                         list_display_verbose_name.append(getattr(self, name).short_description)
+                    # verifica se existe auguma função feita no model e usada no display
+                    # verifica se é do tipo allow_tags
+                    # e verifica se tem o short_description para usa-lo no cabeçario da tabela do list
+                    elif(hasattr(self.model, name) and hasattr(getattr(self.model, name),'short_description')):
+                        list_display_verbose_name.append(getattr(self.model, name).short_description)
                     elif hasattr(self.model, name):
                         field = self.model._meta.get_field(name)
                         if hasattr(field,'verbose_name'):
@@ -311,10 +347,13 @@ class BaseListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                     # verifica se existe auguma função feita na view e usada no display
                     # verifica se é do tipo allow_tags
                     # e verifica se tem o short_description para usa-lo no cabeçario da tabela do list
-                    if hasattr(self, name) and hasattr(getattr(self, name),'allow_tags') \
-                        and getattr(self, name).allow_tags and\
-                            hasattr(getattr(self, name),'short_description'):
+                    if hasattr(self, name) and hasattr(getattr(self, name),'short_description'):
                         list_display_plural_verbose_name.append(getattr(self, name).short_description)
+                    # verifica se existe auguma função feita no model e usada no display
+                    # verifica se é do tipo allow_tags
+                    # e verifica se tem o short_description para usa-lo no cabeçario da tabela do list
+                    elif(hasattr(self.model, name) and hasattr(getattr(self.model, name),'short_description')):
+                        list_display_plural_verbose_name.append(getattr(self.model, name).short_description)
                     elif hasattr(self.model, name):
                         field = self.model._meta.get_field(name)
                         if hasattr(field,'verbose_name_plural'):
@@ -359,8 +398,7 @@ class BaseListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                     messages.error(self.request, "%s ou a View não tem nenhum campo chamado '%s'" % (self.model._meta.model_name, name),
                                        extra_tags='danger')
                     continue
-            elif not '__' in name and not hasattr(self.model, name) and hasattr(self,name) and (not hasattr(getattr(self, name), 'allow_tags') or
-                    (hasattr(getattr(self, name), 'allow_tags') and not getattr(self, name).allow_tags)):
+            elif not '__' in name and not hasattr(self.model, name) and not hasattr(self,name):
                 messages.error(self.request,
                                "%s não tem nenhum campo chamado '%s'" % (self.model._meta.model_name, name),
                                extra_tags='danger')
@@ -418,7 +456,7 @@ class BaseListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                             for item_fk in lista_fk:
                                 if item_fk['id'] == obj.id:
                                     field_dict[field_display] = "{}".format(item_fk[field_display])
-                        elif hasattr(obj, field_display) and field_display != '__str__':
+                        elif hasattr(obj, field_display) and not hasattr(getattr(obj, field_display),'short_description') and field_display != '__str__':
                             # verifica se o campo não é None se sim entra no if
                             if obj.__getattribute__(field_display) is not None:
                                 # Verificando se o campo possui o metodo do CHOICE
@@ -445,18 +483,32 @@ class BaseListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                                             list_many.append('{}'.format(sub_obj))
                                         field_dict[field_display] = ', '.join(list_many)
                                     else:
-                                        field_dict[field_display] = "{}".format(getattr(obj, field_display).__str__())
+                                        field_dict[field_display] = "{}".format( getattr(obj, field_display).__str__() )
                             else:
                                 # no caso de campos None ele coloca para aparecer vasio
                                 field_dict[field_display] = ""
                         elif field_display == '__str__':
                             field_dict[field_display] = "{}".format(getattr(obj, field_display)())
 
-                        elif hasattr(self, field_display) and self.__getattribute__(field_display) and  field_display != '__str__':
+                        elif hasattr(self, field_display) and hasattr(getattr(self, field_display),'short_description') and \
+                                self.__getattribute__(field_display) and  field_display != '__str__':
                             # elif verifica se existe auguma função feita na view e usada no display
                             # elif verifica se é do tipo allow_tags
                             # elif então usa o retorno da função para aparecer na lista
-                            field_dict[field_display] = getattr(self, field_display)(obj)
+                            if (hasattr(getattr(self, field_display), 'allow_tags') and getattr(self, field_display).allow_tags):
+                                field_dict[field_display] = mark_safe(getattr(self, field_display)(obj) )
+                            else:
+                                field_dict[field_display] = getattr(self, field_display)(obj)
+
+                        elif hasattr(obj, field_display) and hasattr(getattr(obj, field_display),'short_description') and \
+                                obj.__getattribute__(field_display) and field_display != '__str__':
+                            # elif verifica se existe auguma função feita no objeto e usada no display
+                            # elif verifica se é do tipo allow_tags
+                            # elif então usa o retorno da função para aparecer na lista
+                            if (hasattr(getattr(obj, field_display), 'allow_tags') and getattr(obj, field_display).allow_tags):
+                                field_dict[field_display] = mark_safe(getattr(obj, field_display)() )
+                            else:
+                                field_dict[field_display] = getattr(obj, field_display)()
                     except Exception as e:
                         messages.error(self.request, "Erro com o campo '%s' no model '%s'!" % (field_display, str(obj)),
                                        extra_tags='danger')
@@ -547,17 +599,17 @@ class BaseListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
 class BaseDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     """
-    Classe base que deve ser herdada caso o desenvolvedor queira reaproveitar 
+    Classe base que deve ser herdada caso o desenvolvedor queira reaproveitar
     as funcionalidades já desenvolvidas para DetailView
 
     Na classe que herdar dessa deve ser atribuido o valor template_name com o caminho até o template HTML a ser renderizado
-        
+
     Raises:
         ValidationError -- Caso não seja atribuido o valor da variavel template_name ocorrerá uma excessão
     """
 
     model = Base
-    exclude = []
+    exclude = ['deleted', 'enabled']
     template_name_suffix = '_detail'
 
     def get_template_names(self):
@@ -587,7 +639,7 @@ class BaseDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super(BaseDetailView, self).get_context_data(**kwargs)
-        object_list, many_fields = self.object.get_all_related_fields()
+        object_list, many_fields = self.object.get_all_related_fields(view=self)
         context['object_list'] = object_list
         context['many_fields'] = many_fields
 
@@ -619,11 +671,11 @@ class BaseDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
 
 class BaseUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     """
-    Classe base que deve ser herdada caso o desenvolvedor queira reaproveitar 
+    Classe base que deve ser herdada caso o desenvolvedor queira reaproveitar
     as funcionalidades já desenvolvidas para UpdateView
 
     Na classe que herdar dessa deve ser atribuido o valor template_name com o caminho até o template HTML a ser renderizado
-        
+
     Raises:
         ValidationError -- Caso não seja atribuido o valor da variavel template_name ocorrerá uma excessão
     """
@@ -643,7 +695,15 @@ class BaseUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 
     def get_success_url(self):
         if self.success_url and self.success_url != '':
-            return self.success_url
+            parametro = ParameterForBase.objects.first()
+            if "/" in self.success_url :
+                if parametro.login_redirect_url not in self.success_url:
+                    url = ('%s%s'%(parametro.login_redirect_url, self.success_url+''.lstrip('/'))).replace('//', '/')
+                    return url
+                else:
+                    return self.success_url
+            elif ":" in self.success_url:
+                return reverse(self.success_url)
         else:
             url = reverse('{app}:{model}-detail'.format(
                 app=self.model._meta.app_label,
@@ -704,15 +764,18 @@ class BaseUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
                                    prefix=item.model._meta.model_name)
                     else:
                         formset = item(instance=self.object, prefix=item.model._meta.model_name)
+
                     lista_instance_inline = formset.queryset.all() or []
                     # só seta True caso os valores definidos na permissão do usuario e o can_delete do inlineformset_factory seja True
                     formset.can_delete = item.model().has_delete_permission(self.request) and item.can_delete
+
                     if not formset.can_delete:
-                        # se não tem permisão de excluir, então seta o valor minimo para 0
-                        formset.min_num = 0
+                        formset.min_num = len(lista_instance_inline)
+                        # se não tem permisão de excluir, então seta o valor minimo para o minimo da lista
                     if not item.model().has_add_permission(self.request):
-                        # se não tem permisão de adcionar, então seta o valor minimo para 0
-                        formset.max_num = 0
+                        # se não tem permisão de adcionar, então seta o valor maximo para maximo da lista
+                        formset.max_num = len(lista_instance_inline)
+
                     if hasattr(formset, 'prefix') and formset.prefix:
                         #pode ser colocado o user aqui para utilizar na validação do forms
                         formset.form.user = self.request.user
@@ -723,7 +786,7 @@ class BaseUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 
     def get_form_kwargs(self):
         """Método utilizado para adicionar o request
-        
+
         Returns:
             Kwargs
         """
@@ -733,10 +796,10 @@ class BaseUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         """Método para verificar se o formulário submetido está válido
-        
+
         Arguments:
             form {Form} -- Formulário com os valores enviado para processamento
-        
+
         Returns:
             Url -- O retorno é o redirecionamento para a URL de sucesso configurada na Views da app
         """
@@ -746,6 +809,15 @@ class BaseUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
         if form.is_valid():
             for form_formset in formset_inlines:
                 if not form_formset.is_valid():
+                    titulo = ''
+                    if form_formset.model._meta.verbose_name_plural:
+                        titulo = str(form_formset.model._meta.verbose_name_plural).title()
+                    elif form_formset.model._meta.verbose_name:
+                        titulo = str(form_formset.model._meta.verbose_name).title()
+                    elif form_formset.prefix:
+                        titulo = str(form_formset.prefix).title()
+                    messages.error(request=self.request, message="Ocorreu um erro em %s, verifique os campos!"%titulo,
+                                   extra_tags='danger')
                     return self.render_to_response(
                         context=self.get_context_data(form=form, named_formsets=formset_inlines))
 
@@ -773,12 +845,12 @@ class BaseUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
 
 class BaseCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     """
-    Classe base que deve ser herdada caso o desenvolvedor queira reaproveitar 
+    Classe base que deve ser herdada caso o desenvolvedor queira reaproveitar
     as funcionalidades já desenvolvidas para CreateView
 
     Na classe que herdar dessa deve ser atribuido o valor template_name com o
     caminho até o template HTML a ser renderizado
-        
+
     Raises:
         ValidationError -- Caso não seja atribuido o valor da variavel template_name ocorrerá uma excessão
     """
@@ -799,7 +871,15 @@ class BaseCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
 
     def get_success_url(self):
         if self.success_url and self.success_url != '':
-            return reverse(self.success_url)
+            parametro = ParameterForBase.objects.first()
+            if "/" in self.success_url :
+                if parametro.login_redirect_url not in self.success_url:
+                    url = ('%s%s'%(parametro.login_redirect_url, self.success_url+''.lstrip('/'))).replace('//', '/')
+                    return url
+                else:
+                    return self.success_url
+            elif ":" in self.success_url:
+                return reverse(self.success_url)
         else:
             url = reverse('{app}:{model}-detail'.format(
                 app=self.model._meta.app_label,
@@ -845,7 +925,7 @@ class BaseCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
 
     def get_form_kwargs(self):
         """Método utilizado para adicionar o request
-        
+
         Returns:
             Kwargs
         """
@@ -871,7 +951,8 @@ class BaseCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
                     else:
                         formset = item(instance=self.object, prefix=item.model._meta.model_name)
                     lista_instance_inline = formset.queryset.all() or []
-                    formset.can_delete = item.model().has_delete_permission(self.request)
+                    formset.can_delete = item.model().has_delete_permission(self.request) and item.can_delete
+
                     if not formset.can_delete:
                         formset.min_num = len(lista_instance_inline)
                     if not item.model().has_add_permission(self.request):
@@ -885,10 +966,10 @@ class BaseCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
 
     def form_valid(self, form):
         """Método para verificar se o formulário submetido está válido
-        
+
         Arguments:
             form {Form} -- Formulário com os valores enviado para processamento
-        
+
         Returns:
             Url -- O retorno é o redirecionamento para a URL de sucesso configurada na Views da app
         """
@@ -940,7 +1021,15 @@ class BaseDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
 
     def get_success_url(self):
         if self.success_url and self.success_url != '':
-            return reverse(self.success_url)
+            parametro = ParameterForBase.objects.first()
+            if "/" in self.success_url :
+                if parametro.login_redirect_url not in self.success_url:
+                    url = ('%s%s'%(parametro.login_redirect_url, self.success_url+''.lstrip('/'))).replace('//', '/')
+                    return url
+                else:
+                    return self.success_url
+            elif ":" in self.success_url:
+                return reverse(self.success_url)
         else:
             url = reverse('{app}:{model}-list'.format(
                 app=self.model._meta.app_label,
@@ -958,7 +1047,21 @@ class BaseDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     def get_context_data(self, **kwargs):
         context = super(BaseDeleteView, self).get_context_data(**kwargs)
 
-        object_list, many_fields = self.object.get_all_related_fields()
+        object_list, many_fields = self.object.get_all_related_fields(view=self)
+
+        # retorna lista de objetos que o usuario não tem permissão de excluir e lista dos objetos que estão protegidos com o PROTECT
+        (perms_needed, protected) = self.object.get_deleted_objects(type(self.object).objects.filter(id=self.object.id), self.request.user)
+
+        # inclui na lista objetos relacionados que o usuario não tem permissão
+        for related in many_fields:
+            if len(related) >= 2:
+                for perm_needed in self.object.get_deleted_objects(related[1].all(), self.request.user)[0]:
+                    if not perm_needed in perms_needed:
+                        perms_needed.add(perm_needed)
+
+        context['perms_lacking'] = perms_needed
+        context['protected'] = protected
+
         context['object_list'] = object_list
         context['many_fields'] = many_fields
 

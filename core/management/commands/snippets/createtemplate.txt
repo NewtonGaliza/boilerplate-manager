@@ -1,5 +1,5 @@
 {% extends "outside_template/base_create.html" %}
-{% load base %}
+{% load boilerplate_base %}
 {% block tituloapp %}Cadastrando $title$ {% endblock tituloapp %} 
 {% block contentform %}
     {% if form.non_field_errors %}
