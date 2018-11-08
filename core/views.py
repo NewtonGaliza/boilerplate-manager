@@ -1094,7 +1094,8 @@ class BaseDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
 class BaseLoginView(LoginView):
     template_name = 'outside_template/registration/base_login.html'
     extra_context = {'parameter': ParameterForBase.objects.first}
-
+    redirect_authenticated_user = True
+    
     def get_success_url(self):
         url = self.get_redirect_url()
         parametro = ParameterForBase.objects.first()
