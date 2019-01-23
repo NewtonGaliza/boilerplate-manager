@@ -37,7 +37,7 @@
   $.getDataTable = function getDataTable(obj) {
     //remove a tabela antiga
     $("#table-" + obj.prefix + " tbody").html("");
-    //remove o total de itens antigos
+    //remove o botão antigo
     $("#total-" + obj.prefix).html("");
     // Recuperar index do inline
     obj.index = obj.table.length;
@@ -46,6 +46,8 @@
     var html = "";
     //Gera a tabela com os campos passados pelo usuário
     obj.table.forEach(function (item, i) {
+      //se o item não esta deletado, mostra na tabela
+      if(!(item[obj.prefix+"-"+i+"-DELETE"])){
       html += "<tr>";
       html +=
         '<td><button type="button" id="btn-edit-' +
@@ -68,15 +70,12 @@
         html += "<td>" + item[key] + "</td>";
       });
       html += "</tr>";
+    }
     });
     // Inisere as linhas na tabela
     $("#table-" + obj.prefix + " tbody").append(html);
-    // Informa o total de itens
+    // Adiciona o botão
     $("#total-" + obj.prefix).append(
-      "Total de " +
-      obj.prefix +
-      ": " +
-      obj.table.length +
       '<button type="button" class="btn btn-primary float-right" id="btn-add-' +
       obj.prefix +
       '">Adicionar Novo</button>'
@@ -168,25 +167,8 @@
     var obj = event.data.obj;
     // Recupera o id da linha da tabela
     var id = event.data.id;
-    // remove o item da tabela com base no id
-    obj.table.splice(id, 1);
-    // Muda as keys do object de acordo com o index
-    // para ficar organizado, sem n o formset não irá funcionar
-    obj.table.forEach(function (item, index) {
-      for (key in item) {
-        let arrName = key.split("-");
-        arrName[1] = index;
-        newName = arrName.join("-");
-        if (key !== newName) {
-          Object.defineProperty(
-            item,
-            newName,
-            Object.getOwnPropertyDescriptor(item, key)
-          );
-          delete item[key];
-        }
-      }
-    });
+    // atualiza o objeto para deletar no servidor
+    obj.table[id][obj.prefix+"-"+id+"-DELETE"] = true;
     // Atualiza o localStorage
     localStorage.setItem(obj.table_name, JSON.stringify(obj.table));
     // Gera uma nova tabela
@@ -217,12 +199,15 @@
     //pega o item com base no Id
     var item = obj.table[id];
     // Pega os inputs do formulário
-    var $inputs = $("#form-" + obj.prefix + " :input");
-    // pega as keys do objeto item
-    var sortedKeys = Object.keys(item);
+    var inputs = $("#form-" + obj.prefix + " :input");
+    // pega o index o objeto item
+    var sortedKeys = Object.keys(item)[0].split('-')[1];
     // para cada input coloca o valor do localstorage
-    $inputs.each(function (i) {
-      $(this).val(item[sortedKeys[i]]);
+    inputs.each(function () {
+      //Pega o nome do campo e substitui o prefix pelo index
+      // para depois adiconar o valor correspondente ao campo
+      var name = $(this).attr("name").replace("__prefix__", sortedKeys);
+      $(this).val(item[name].split("-").reverse().join("/"));
     });
   };
   /**
@@ -233,7 +218,9 @@
       keys = Object.keys(localStorage),
       i = keys.length;
     while (i--) {
-      values.push(localStorage.getItem(keys[i]));
+      if(keys[0].substring(0, 6) == 'inline'){
+        values.push(localStorage.getItem(keys[i]));
+      }
     }
     return values;
   };
@@ -304,7 +291,6 @@
           typeof event.data.id === 'undefined' ? $.create(obj) : $.update(obj, event.data.id);
       },
       error: function (error) {
-        console.log(error);
         //Remove os errors antigos
         $("#form-" + obj.prefix + " input, select")
           .removeClass("is-invalid")
