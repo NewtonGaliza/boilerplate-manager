@@ -57,6 +57,8 @@ Add `core` to your `INSTALLED_APPS` setting:
 Add `core.urls` to your project urlpatterns:
 
 ```python
+from django.urls import include,path
+
     urlpatterns = [
         # other urls
         path('core/', include('core.urls'), name='core'),
